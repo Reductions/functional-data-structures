@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <memory>
 
 #ifndef int64
 #define int64 long long
@@ -14,7 +15,7 @@ namespace ppds
   class list
   {
     enum change_type {
-      no_change,
+      no_change = 0,
       next_change,
       data_change
     };
@@ -23,26 +24,36 @@ namespace ppds
 
     struct change {
       union change_value {
-        int64 revision;
         node* next;
         T data;
         change_value(node* next = nullptr):
-          revision(-1), next(next) {}
-        change_value(const T& = data):
-          revision(-1), data(data) {}
+          next(next) {}
+        change_value(const T&):
+          data(data) {}
       };
 
+
+      int64 revision;
       change_type type;
       change_value value;
 
-      chnage():
+      change():
         type(no_change){}
 
-      chnage(const T& value):
-        type(data_change), value(value){}
+      change(const T& value, int64 revision):
+        type(data_change), value(value), revision(revision){}
 
-      chnage(node* value):
-        type(next_change), value(value){
+      change(node* value, int64 revision):
+        type(next_change), value(value), revision(revision){}
+
+      void operator()(node*& next, T& data, int64 version) {
+        if(revision <= version){
+          if (type == next_change){
+            next = value.next;
+          } else if (type == data_change){
+            data = value.data;
+          }
+        }
       }
     };
 
@@ -56,71 +67,95 @@ namespace ppds
         data(data), next(next), back(back) {}
     };
 
-    class proxy {
-      friend list;
-      list* in;
-      node** to;
-
-      proxy(node* _to, list* _in){
-        in = _in;
-        to = new node*(_to);
-      }
-    public:
-      int64 operator= (const T& data){
-        return (*in).update_at(*this, data);
-      }
-
-      ~proxy(){
-        *to = nullptr;
-        delete to;
-      }
-    };
-
     struct list_root{
       node* root;
       int64 size;
     };
 
-    vector<pair<node*, int64>> timeline;
-    vector<proxy> given;
+    vector<list_root> timeline;
 
   public:
     list(){
-      timeline.push_back(pair(nullptr, 0));
+      timeline.push_back(list_root{nullptr, 0});
     }
 
     //update
 
     int64 push(const T& data){
       auto last = timeline.back();
-      auto root = new node(data, last.first, nullptr);
-      last.first->back = root;
-      timeline.push_back({root, last.second + 1});
-      given.clear();
-      return timeline.size();
+      auto root = new node(data, last.root, nullptr);
+      if (last.root){
+        last.root->back = root;
+      }
+      timeline.push_back({root, last.size + 1});
+      return timeline.size() - 1;
     }
 
     int64 pop(){
       auto last = timeline.back();
-      auto root = last.first->next;
-      root->back = nullptr;
-      timeline.push_back({root, last.second - 1});
-      given.clear();
-      return timeline.size();
+      auto root = last.root->next;
+      if (root){
+        root->back = nullptr;
+      }
+      timeline.push_back({root, last.size - 1});
+      return timeline.size() - 1;
     }
 
-    int64 update_at(const proxy& at, const T& data){
-      
+    int64 update_first_found(const T& old_data, const T& new_data){
+      auto current = timeline.back().root;
+      auto next = current->next;
+      auto data = root->data;
+      auto version = timeline.size() - 1;
+      while (current){
+        current->change_set[0](next, data, version);
+        current->change_set[1](next, data, version);
+        if (data == item){
+          break;
+        }
+        current = next;
+      }
+      if (current) {
+        if(current->change_set[0] == no_change){
+          current->change_set[0] = change(data, timeline.size());
+          timeline.push_back(timeline.back());
+        }
+        else if (current->change_set[0] == no_change){
+          current->change_set[1] = change(data, timeline.size());
+          timeline.push_back(timeline.back());
+        }
+        else {
+          // TODO
+        }
+      }
     }
 
     //query
 
-    int64 size(){
-      return timeline.back().second;
+    int64 size() const{
+      return timeline.back().size;
     }
 
-    int64 size(int64 version){
-      return timeline[version].second;
+    int64 size(int64 version) const{
+      return timeline[version].size;
+    }
+
+    int64 versions() const{
+      return timeline.size();
+    }
+
+    bool has(int64 version, const T& item){
+      auto root = timeline[version].root;
+      while (root){
+        auto next = root->next;
+        T data = root->data;
+        root->change_set[0](next, data, version);
+        root->change_set[1](next, data, version);
+        if (data == item){
+          return true;
+        }
+        root = next;
+      }
+      return false;
     }
 
     //deleted methods and constructors
