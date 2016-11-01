@@ -56,11 +56,76 @@ namespace ppds
         data(data), next(next), back(back) {}
     };
 
+    class proxy {
+      friend list;
+      list* in;
+      node** to;
+
+      proxy(node* _to, list* _in){
+        in = _in;
+        to = new node*(_to);
+      }
+    public:
+      int64 operator= (const T& data){
+        return (*in).update_at(*this, data);
+      }
+
+      ~proxy(){
+        *to = nullptr;
+        delete to;
+      }
+    };
+
+    struct list_root{
+      node* root;
+      int64 size;
+    };
+
     vector<pair<node*, int64>> timeline;
+    vector<proxy> given;
 
   public:
     list(){
       timeline.push_back(pair(nullptr, 0));
     }
+
+    //update
+
+    int64 push(const T& data){
+      auto last = timeline.back();
+      auto root = new node(data, last.first, nullptr);
+      last.first->back = root;
+      timeline.push_back({root, last.second + 1});
+      given.clear();
+      return timeline.size();
+    }
+
+    int64 pop(){
+      auto last = timeline.back();
+      auto root = last.first->next;
+      root->back = nullptr;
+      timeline.push_back({root, last.second - 1});
+      given.clear();
+      return timeline.size();
+    }
+
+    int64 update_at(const proxy& at, const T& data){
+      
+    }
+
+    //query
+
+    int64 size(){
+      return timeline.back().second;
+    }
+
+    int64 size(int64 version){
+      return timeline[version].second;
+    }
+
+    //deleted methods and constructors
+
+    list(const list<T>&) = delete;
+    list<T>& operator= (const list<T>&) = delete;
   };
 }
