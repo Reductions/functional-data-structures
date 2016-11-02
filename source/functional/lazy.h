@@ -8,8 +8,8 @@ class lazy{
   T value;
   bool memoaized;
 public:
-  lazy(std::function<T()> initiator)
-    :delayed(initiator),
+  lazy(std::function<T()> delayed)
+    :delayed(delayed),
      memoaized(false) {}
 
   lazy<T>& operator=(const lazy<T>& other) {
@@ -18,15 +18,11 @@ public:
     return *this;
   }
 
-  T& get() {
+  T& operator ()() {
     if (!memoaized) {
       value = delayed();
       memoaized = true;
     }
     return value;
-  }
-
-  T& operator ()() {
-    return get();
   }
 };

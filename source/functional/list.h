@@ -19,7 +19,7 @@ namespace fds
 
   template <class T>
   bool empty(list<T> l) {
-    return !l;
+    return l;
   }
 
   template <class T>
