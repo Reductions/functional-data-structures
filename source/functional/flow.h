@@ -5,26 +5,26 @@
 
 #include "lazy.h"
 
-
 template <class T>
 struct flow_node;
 
 namespace fds
 {
   template <class T>
-  using flow = lazy<shared_ptr<flow_node<T>>>;
+  using flow = lazy<std::shared_ptr<flow_node<T>>>;
 
   template <class T>
-  const flow<T> empty_flow([](){ return std::shared_ptr<flow_node<T>>(nullptr); });
+  flow<T> empty_flow = flow<T>([](){ return std::shared_ptr<flow_node<T>>(nullptr); });
 
   template <class T>
-  bool empty(flow<T>& F){
-    return !F();
+  bool empty(flow<T> F){
+    return !(F());
   }
 
   template <class T>
-  flow<T> cons(T data, flow<T>& F){
-    return flow<T>([](){ return std::make_shared<flow_node<T>>(data, F); });
+  flow<T> cons(T data, flow<T> F){
+    return flow<T>([data, F](){
+        return std::make_shared<flow_node<T>>(data, F); });
   }
 
   template <class T>
@@ -43,7 +43,7 @@ namespace fds
       return second;
     }
     return cons(head(first),
-                append(tail(first), second));
+                flow<T>([=](){ return append(tail(first), second)(); }));
   }
 }
 
@@ -52,7 +52,7 @@ struct flow_node
 {
   T head;
   fds::flow<T> tail;
-  flow_node(T head, fds::flow<T>& tail):
+  flow_node(T head, fds::flow<T> tail):
     head(head),
     tail(tail) {}
 };
