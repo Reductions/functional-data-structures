@@ -14,7 +14,10 @@ namespace fds
   using flow = lazy<std::shared_ptr<flow_node<T>>>;
 
   template <class T>
-  flow<T> empty_flow = flow<T>([](){ return std::shared_ptr<flow_node<T>>(nullptr); });
+  flow<T> empty_flow() {
+    static auto ret = flow<T>([](){ return std::shared_ptr<flow_node<T>>(nullptr); });
+    return ret;
+  }
 
   template <class T>
   bool empty(flow<T> F){
@@ -45,6 +48,35 @@ namespace fds
     return cons(head(first),
                 flow<T>([=](){ return append(tail(first), second)(); }));
   }
+
+  template <class T>
+  flow<T> reverse (flow<T> F){
+    struct local{
+      flow<T> helper(flow<T> F, flow<T> rev){
+        if (empty(F)){
+          return rev;
+        }
+        return helper(tail(F), cons(head(F), rev));
+      }
+    };
+    return flow<T>([=](){ return local::helper(F, empty_flow()); })
+  }
+}
+
+template <class T>
+std::ostream& operator<< (std::ostream& out, fds::flow<T> F){
+  out<<"(";
+  if (F){
+    out<<fds::head(F);
+    F = fds::tail(F);
+    while(F){
+      out<<" ";
+      out<<fds::head(F);
+      F = fds::tail(F);
+    }
+  }
+  out<<")";
+  return out;
 }
 
 template <class T>

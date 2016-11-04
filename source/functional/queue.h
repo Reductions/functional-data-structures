@@ -1,39 +1,47 @@
 #pragma once
 
 #include "lazy.h"
-#include "list.h"
+#include "flow.h"
 
 namespace fds{
   template <class T>
   struct queue{
-    fds::list<T> in;
-    fds::list<T> out;
-    lazy<list<T>> reverser;
+    fds::flow<T> in;
+    int size_in;
+    fds::flow<T> out;
+    int size_out;
 
-    queue(list<T> in = empty_list<T>, list<T> out = empty_list<T>):
-      in(in),
-      out(out),
-      reverser(lazy<list<T>>([in](){
-            return reverse(in);
-          })) {}
+    queue(list<T> _in = empty_flow<T>(), _size_in = 0,
+          list<T> _out = empty_flow<T>(), _size_out = 0)
+    {
+      if (_size_in >= _size_out){
+        size_in = _size_in;
+        size_out = _size_out;
+        in = _in;
+        out = out;
+      }
+      else {
+        size_in = 0;
+        size_out = _size_in + _size_out;
+        in = empty_flow();
+        out = append(_out, reverse(_out));
+      }
+    }
   };
 
   template <class T>
-  const queue<T> empty_queue(empty_list<T>, empty_list<T>);
+  queue<T> empty_queue(){
+    return queue<T>();
+  };
 
   template <class T>
   bool empty (queue<T> q){
-    return empty(q.in) && empty(q.out);
+    return size_in == 0 && size_out == 0;
   }
 
   template <class T>
-  queue<T> push(queue<T> q, T el){
-    queue<T> new_queue = q;
-    if (empty(q)){
-      return queue<T>(q.in, (el, q.in));
-    } else {
-      return queue<T>((el, q.in), q.out);
-    }
+  queue<T> push(queue<T> q, T item){
+    return queue(cons(item, q.in), q.size_in + 1, q.out , q.size_out);
   }
 
   template <class T>
@@ -43,12 +51,7 @@ namespace fds{
 
   template <class T>
   queue<T> pop(queue<T>& q){
-    queue<T> new_queue = q;
-    if(empty(tail(q.out))){
-      return queue<T>(empty_list<T>, q.reverser());
-    } else {
-      return queue<T>(q.in, tail(q.out));
-    
+    return queue(q.in, q.size_in, tail(q.out), q.size_out - 1);
   }
 }
 
